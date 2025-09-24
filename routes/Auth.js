@@ -1,15 +1,11 @@
-// routes/authRoutes.js
 import express from "express";
-import { signup, login, sendOtp, verifyOtp } from "../controllers/authController.js";
+import { signup, login, getMe } from "../controllers/authController.js";
+import { verifyToken } from "../middlewares/authMiddleware.js"; 
 
 const router = express.Router();
 
-// Auth
 router.post("/signup", signup);
 router.post("/login", login);
-
-// OTP
-router.post("/send-otp", sendOtp);
-router.post("/verify-otp", verifyOtp);
+router.get("/me", verifyToken, getMe);
 
 export default router;
