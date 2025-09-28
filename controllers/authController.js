@@ -2,21 +2,17 @@ import User from "../models/User.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
-// ====== SIGNUP ======
 export const signup = async (req, res) => {
   try {
     const { name, collegeId, email, mobile, year, branch, password } = req.body;
 
-    // check if user exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(400).json({ message: "User already exists" });
     }
 
-    // hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // create new user
     const user = await User.create({
       name,
       collegeId,
@@ -27,7 +23,6 @@ export const signup = async (req, res) => {
       password: hashedPassword,
     });
 
-    // generate token
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
       expiresIn: "7d",
     });
@@ -39,7 +34,6 @@ export const signup = async (req, res) => {
   }
 };
 
-// ====== LOGIN ======
 export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -60,7 +54,6 @@ export const login = async (req, res) => {
     res.status(500).json({ message: "Server error", error: err.message });
   }
 };
-// ====== GET CURRENT USER ======
 export const getMe = async (req, res) => {
   try {
     const userId = req.userId; // set by verifyToken middleware
