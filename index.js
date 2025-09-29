@@ -20,7 +20,7 @@ app.use(
     origin: function (origin, callback) {
       // Allow requests with no origin (like Postman or curl)
       if (!origin) return callback(null, true);
-
+      // console.log("Allowed origins:", allowedOrigins);
       if (allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
