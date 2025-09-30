@@ -2,8 +2,9 @@ import express from "express";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
 import cors from "cors";
-import authRoutes from "./routes/Auth.js";
-
+import authRoutes from "./routes/auth.js";
+import resourceRoutes from "./routes/resource.js";
+import leaderboardRoutes from "./routes/leaderboard.js";
 dotenv.config();
 
 const app = express();
@@ -47,7 +48,8 @@ mongoose
 
 // ===== Routes =====
 app.use("/api/auth", authRoutes);
-
+app.use("/api/resources", resourceRoutes);
+app.use("/api/leaderboard", leaderboardRoutes);
 // ===== Health Check =====
 app.get("/", (req, res) => {
   res.json({ status: "OK", message: "API is running 🚀" });

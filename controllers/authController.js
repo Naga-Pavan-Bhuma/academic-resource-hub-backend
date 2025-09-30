@@ -1,6 +1,9 @@
 import User from "../models/User.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import { OAuth2Client } from "google-auth-library";
+
+const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 export const signup = async (req, res) => {
   try {
@@ -54,6 +57,7 @@ export const login = async (req, res) => {
     res.status(500).json({ message: "Server error", error: err.message });
   }
 };
+
 export const getMe = async (req, res) => {
   try {
     const userId = req.userId; // set by verifyToken middleware
@@ -67,3 +71,43 @@ export const getMe = async (req, res) => {
   }
 };
 
+// ================= GOOGLE LOGIN =================
+export const googleLogin = async (req, res) => {
+  try {
+    const { token } = req.body;
+
+    const ticket = await client.verifyIdToken({
+      idToken: token,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+    const payload = ticket.getPayload();
+
+    // Check email domain
+    if (!payload.email.endsWith("@rguktrkv.ac.in")) {
+      return res.status(403).json({ message: "Use your college email only" });
+    }
+
+    let user = await User.findOne({ email: payload.email });
+
+    if (!user) {
+      user = await User.create({
+        name: payload.name,
+        collegeId: payload.sub, // fallback if no college ID
+        email: payload.email,
+        mobile: "",
+        year: "",
+        branch: "",
+        password: null, // Google account → no password
+      });
+    }
+
+    const appToken = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
+      expiresIn: "7d",
+    });
+
+    res.status(200).json({ user, token: appToken });
+  } catch (err) {
+    console.error("❌ Google Login Error:", err.message);
+    res.status(400).json({ message: "Invalid Google token", error: err.message });
+  }
+};
