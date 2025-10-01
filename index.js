@@ -1,62 +1,45 @@
+import dotenv from "dotenv";
+dotenv.config(); // MUST be first
+
 import express from "express";
 import mongoose from "mongoose";
-import dotenv from "dotenv";
 import cors from "cors";
 import authRoutes from "./routes/auth.js";
 import resourceRoutes from "./routes/resource.js";
 import leaderboardRoutes from "./routes/leaderboard.js";
-dotenv.config();
 
 const app = express();
 
-// ===== Allowed Origins =====
-const allowedOrigins = [
-  "http://localhost:5173",    // local dev
-  process.env.CLIENT_URL       // any other origin from .env
-];
+const allowedOrigins = ["http://localhost:5173", process.env.CLIENT_URL];
 
-// ===== Middleware =====
 app.use(
   cors({
     origin: function (origin, callback) {
-      // Allow requests with no origin (like Postman or curl)
       if (!origin) return callback(null, true);
-      // console.log("Allowed origins:", allowedOrigins);
-      if (allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error(`CORS policy: Origin ${origin} not allowed`));
-      }
+      if (allowedOrigins.includes(origin)) callback(null, true);
+      else callback(new Error(`CORS policy: Origin ${origin} not allowed`));
     },
-    credentials: true, // if using cookies or auth headers
+    credentials: true,
   })
 );
 
-app.use(express.json()); // Parse JSON bodies
+app.use(express.json());
 
-// ===== MongoDB Connection =====
+// MongoDB connection
 mongoose
-  .connect(process.env.MONGO_URI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  })
+  .connect(process.env.MONGO_URI)
   .then(() => console.log("✅ MongoDB connected"))
   .catch((err) => {
     console.error("❌ MongoDB connection error:", err.message);
     process.exit(1);
   });
 
-// ===== Routes =====
+// Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/resources", resourceRoutes);
 app.use("/api/leaderboard", leaderboardRoutes);
-// ===== Health Check =====
-app.get("/", (req, res) => {
-  res.json({ status: "OK", message: "API is running 🚀" });
-});
 
-// ===== Start Server =====
+app.get("/", (req, res) => res.json({ status: "OK", message: "API is running 🚀" }));
+
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`🚀 Server running on http://0.0.0.0:${PORT}`);
-});
+app.listen(PORT, "0.0.0.0", () => console.log(`🚀 Server running on http://0.0.0.0:${PORT}`));
