@@ -2,6 +2,80 @@ import User from "../models/User.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { OAuth2Client } from "google-auth-library";
+import Otp from "../models/Otp.js";
+import nodemailer from "nodemailer";
+
+const transporter = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
+});
+
+export const requestSignupOtp = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ message: "User already exists" });
+    }
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 min
+
+    await Otp.findOneAndUpdate(
+      { email },
+      { otp, expiresAt },
+      { upsert: true, new: true }
+    );
+
+    await transporter.sendMail({
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: "Your OTP for Sign-Up",
+      text: `Your OTP is ${otp}. It expires in 5 minutes.`,
+    });
+
+    res.json({ message: "OTP sent successfully" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Failed to send OTP" });
+  }
+};
+
+export const verifySignupOtp = async (req, res) => {
+  try {
+    const { name, collegeId, email, mobile, year, branch, password, otp } = req.body;
+
+    const record = await Otp.findOne({ email });
+    if (!record) return res.status(400).json({ message: "OTP not found" });
+    if (record.expiresAt < new Date()) return res.status(400).json({ message: "OTP expired" });
+    if (record.otp !== otp) return res.status(400).json({ message: "Invalid OTP" });
+
+    // OTP is valid → create user
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const user = await User.create({
+      name,
+      collegeId,
+      email,
+      mobile,
+      year,
+      branch,
+      password: hashedPassword,
+    });
+
+    await Otp.deleteOne({ email }); // remove OTP
+
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "7d" });
+
+    res.status(201).json({ user, token });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Signup failed", error: err.message });
+  }
+};
 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
