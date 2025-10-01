@@ -2,104 +2,51 @@ import User from "../models/User.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { OAuth2Client } from "google-auth-library";
-import Otp from "../models/Otp.js";
-import nodemailer from "nodemailer";
-
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-});
-
-export const requestSignupOtp = async (req, res) => {
-  try {
-    const { email } = req.body;
-
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(400).json({ message: "User already exists" });
-    }
-
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 min
-
-    await Otp.findOneAndUpdate(
-      { email },
-      { otp, expiresAt },
-      { upsert: true, new: true }
-    );
-
-    await transporter.sendMail({
-      from: process.env.EMAIL_USER,
-      to: email,
-      subject: "Your OTP for Sign-Up",
-      text: `Your OTP is ${otp}. It expires in 5 minutes.`,
-    });
-
-    res.json({ message: "OTP sent successfully" });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Failed to send OTP" });
-  }
-};
-
-export const verifySignupOtp = async (req, res) => {
-  try {
-    const { name, collegeId, email, mobile, year, branch, password, otp } = req.body;
-
-    const record = await Otp.findOne({ email });
-    if (!record) return res.status(400).json({ message: "OTP not found" });
-    if (record.expiresAt < new Date()) return res.status(400).json({ message: "OTP expired" });
-    if (record.otp !== otp) return res.status(400).json({ message: "Invalid OTP" });
-
-    // OTP is valid → create user
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const user = await User.create({
-      name,
-      collegeId,
-      email,
-      mobile,
-      year,
-      branch,
-      password: hashedPassword,
-    });
-
-    await Otp.deleteOne({ email }); // remove OTP
-
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "7d" });
-
-    res.status(201).json({ user, token });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Signup failed", error: err.message });
-  }
-};
 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
+// ===== SIGNUP (No OTP) =====
 export const signup = async (req, res) => {
   try {
     const { name, collegeId, email, mobile, year, branch, password } = req.body;
 
-    const existingUser = await User.findOne({ email });
+    // 1️⃣ All fields required
+    if (!name || !collegeId || !email || !mobile || !year || !branch || !password) {
+      return res.status(400).json({ message: "All fields are required" });
+    }
+
+    // 2️⃣ Password validation: min 8 chars, 1 letter, 1 number, 1 symbol
+    const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*#?&^_-])[A-Za-z\d@$!%*#?&^_-]{8,}$/;
+    if (!passwordRegex.test(password)) {
+      return res.status(400).json({
+        message: "Password must be at least 8 characters, include a letter, a number, and a symbol"
+      });
+    }
+
+    // 3️⃣ Normalize email & trim strings
+    const normalizedEmail = email.toLowerCase().trim();
+
+    // 4️⃣ Check if user already exists
+    const existingUser = await User.findOne({ email: normalizedEmail });
     if (existingUser) {
       return res.status(400).json({ message: "User already exists" });
     }
 
+    // 5️⃣ Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    // 6️⃣ Create user
     const user = await User.create({
-      name,
-      collegeId,
-      email,
-      mobile,
-      year,
-      branch,
+      name: name.trim(),
+      collegeId: collegeId.trim(),
+      email: normalizedEmail,
+      mobile: mobile.trim(),
+      year: year.trim(),
+      branch: branch.trim(),
       password: hashedPassword,
     });
 
+    // 7️⃣ Generate JWT
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
       expiresIn: "7d",
     });
@@ -111,11 +58,16 @@ export const signup = async (req, res) => {
   }
 };
 
+// ===== LOGIN =====
 export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    const user = await User.findOne({ email });
+    if (!email || !password) {
+      return res.status(400).json({ message: "Email and password are required" });
+    }
+
+    const user = await User.findOne({ email: email.toLowerCase().trim() });
     if (!user) return res.status(404).json({ message: "User not found" });
 
     const isMatch = await bcrypt.compare(password, user.password);
@@ -132,10 +84,11 @@ export const login = async (req, res) => {
   }
 };
 
+// ===== GET CURRENT USER =====
 export const getMe = async (req, res) => {
   try {
     const userId = req.userId; // set by verifyToken middleware
-    const user = await User.findById(userId).select("-password"); // exclude password
+    const user = await User.findById(userId).select("-password");
     if (!user) return res.status(404).json({ message: "User not found" });
 
     res.status(200).json({ user });
@@ -145,7 +98,7 @@ export const getMe = async (req, res) => {
   }
 };
 
-// ================= GOOGLE LOGIN =================
+// ===== GOOGLE LOGIN =====
 export const googleLogin = async (req, res) => {
   try {
     const { token } = req.body;
@@ -156,7 +109,6 @@ export const googleLogin = async (req, res) => {
     });
     const payload = ticket.getPayload();
 
-    // Check email domain
     if (!payload.email.endsWith("@rguktrkv.ac.in")) {
       return res.status(403).json({ message: "Use your college email only" });
     }
@@ -166,7 +118,7 @@ export const googleLogin = async (req, res) => {
     if (!user) {
       user = await User.create({
         name: payload.name,
-        collegeId: payload.sub, // fallback if no college ID
+        collegeId: payload.sub,
         email: payload.email,
         mobile: "",
         year: "",
