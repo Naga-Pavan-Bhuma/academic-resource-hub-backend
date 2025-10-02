@@ -88,4 +88,54 @@ router.get("/", async (req, res) => {
   }
 });
 
+/* ------------------- RATING ENDPOINTS ------------------- */
+
+// Get average rating and rating count
+router.get("/:id/rating", async (req, res) => {
+  try {
+    const resource = await Resource.findById(req.params.id);
+    if (!resource) return res.status(404).json({ message: "Resource not found" });
+
+    res.json({
+      average: Math.round(resource.avgRating * 10) / 10,
+      count: resource.ratingCount
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Submit or update a rating
+router.post("/:id/rate", async (req, res) => {
+  try {
+    const { userId, value } = req.body;
+    if (!userId || !value || value < 1 || value > 5)
+      return res.status(400).json({ message: "Invalid rating" });
+
+    const resource = await Resource.findById(req.params.id);
+    if (!resource) return res.status(404).json({ message: "Resource not found" });
+
+    // Check if user has already rated
+    const existing = resource.ratings.find(r => r.userId.toString() === userId);
+    if (existing) {
+      existing.value = value; // update existing rating
+    } else {
+      resource.ratings.push({ userId, value });
+    }
+
+    resource.updateRatingStats(); // recalc avgRating and ratingCount
+    await resource.save();
+
+    res.json({
+      message: "Rating submitted",
+      avgRating: resource.avgRating,
+      ratingCount: resource.ratingCount
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
 export default router;
