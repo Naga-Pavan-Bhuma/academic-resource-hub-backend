@@ -8,9 +8,14 @@ import authRoutes from "./routes/auth.js";
 import resourceRoutes from "./routes/resource.js";
 import leaderboardRoutes from "./routes/leaderboard.js";
 
+import discussionRouter from "./routes/discussion.js";
+
+
+
 const app = express();
 
 const allowedOrigins = ["http://localhost:5173", process.env.CLIENT_URL];
+
 
 app.use(
   cors({
@@ -38,6 +43,7 @@ mongoose
 app.use("/api/auth", authRoutes);
 app.use("/api/resources", resourceRoutes);
 app.use("/api/leaderboard", leaderboardRoutes);
+app.use("/api/discussions", discussionRouter);
 
 app.get("/", (req, res) => res.json({ status: "OK", message: "API is running 🚀" }));
 
