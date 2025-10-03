@@ -1,13 +1,12 @@
 import dotenv from "dotenv";
-dotenv.config(); // MUST be first
-
+dotenv.config();
 import express from "express";
 import mongoose from "mongoose";
 import cors from "cors";
 import authRoutes from "./routes/auth.js";
 import resourceRoutes from "./routes/resource.js";
 import leaderboardRoutes from "./routes/leaderboard.js";
-
+import bookmarkRouter from "./routes/bookmark.js";
 import discussionRouter from "./routes/discussion.js";
 
 
@@ -44,7 +43,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/resources", resourceRoutes);
 app.use("/api/leaderboard", leaderboardRoutes);
 app.use("/api/discussions", discussionRouter);
-
+app.use("/api/bookmarks", bookmarkRouter);
 app.get("/", (req, res) => res.json({ status: "OK", message: "API is running 🚀" }));
 
 const PORT = process.env.PORT || 5000;

@@ -9,6 +9,7 @@ const userSchema = new mongoose.Schema({
   branch: { type: String },
   password: { type: String, required: true },
   points: { type: Number, default: 0 },
+  bookmarks: [{ type: mongoose.Schema.Types.ObjectId, ref: "Resource" }],
 }, { timestamps: true });
 
 export default mongoose.model("User", userSchema);
