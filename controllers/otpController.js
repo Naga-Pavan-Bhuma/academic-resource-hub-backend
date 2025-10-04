@@ -19,10 +19,12 @@ export const sendOtp = async (req, res) => {
 
     // Create transporter exactly like your working code
     const transporter = nodemailer.createTransport({
-      service: "gmail",
+      host: "smtp.gmail.com",
+      port: 465,
+      secure: true, // true for 465, false for 587
       auth: {
-        user: process.env.APP_MAIL, // Gmail ID
-        pass: process.env.APP_PASSWORD, // App Password
+        user: process.env.APP_MAIL,
+        pass: process.env.APP_PASSWORD,
       },
     });
 
