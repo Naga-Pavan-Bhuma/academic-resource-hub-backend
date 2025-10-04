@@ -13,14 +13,14 @@ import discussionRouter from "./routes/discussion.js";
 
 const app = express();
 
-const allowedOrigins = ["http://localhost:5173", process.env.CLIENT_URL];
+const allowedOrigin = process.env.CLIENT_URL;
 
 
 app.use(
   cors({
     origin: function (origin, callback) {
       if (!origin) return callback(null, true);
-      if (allowedOrigins.includes(origin)) callback(null, true);
+      if (allowedOrigin === origin) callback(null, true);
       else callback(new Error(`CORS policy: Origin ${origin} not allowed`));
     },
     credentials: true,
