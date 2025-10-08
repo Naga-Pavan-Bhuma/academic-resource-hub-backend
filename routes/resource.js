@@ -53,9 +53,9 @@ router.post("/", async (req, res) => {
 
     // 🔥 Increment points for the uploader
     await User.findOneAndUpdate(
-      { collegeId },              // Match user by collegeId
-      { $inc: { points: 10 } },   // Increase points by 10
-      { new: true }               // Return updated user
+      { collegeId }, // Match user by collegeId
+      { $inc: { points: 10 } }, // Increase points by 10
+      { new: true } // Return updated user
     );
 
     res.status(201).json({
@@ -94,12 +94,25 @@ router.get("/", async (req, res) => {
 router.get("/:id/rating", async (req, res) => {
   try {
     const resource = await Resource.findById(req.params.id);
-    if (!resource) return res.status(404).json({ message: "Resource not found" });
+    if (!resource)
+      return res.status(404).json({ message: "Resource not found" });
 
     res.json({
       average: Math.round(resource.avgRating * 10) / 10,
-      count: resource.ratingCount
+      count: resource.ratingCount,
     });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+// Get single resource
+router.get("/:id", async (req, res) => {
+  try {
+    const resource = await Resource.findById(req.params.id);
+    if (!resource)
+      return res.status(404).json({ message: "Resource not found" });
+    res.json(resource);
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Server error" });
@@ -114,10 +127,13 @@ router.post("/:id/rate", async (req, res) => {
       return res.status(400).json({ message: "Invalid rating" });
 
     const resource = await Resource.findById(req.params.id);
-    if (!resource) return res.status(404).json({ message: "Resource not found" });
+    if (!resource)
+      return res.status(404).json({ message: "Resource not found" });
 
     // Check if user has already rated
-    const existing = resource.ratings.find(r => r.userId.toString() === userId);
+    const existing = resource.ratings.find(
+      (r) => r.userId.toString() === userId
+    );
     if (existing) {
       existing.value = value; // update existing rating
     } else {
@@ -130,8 +146,42 @@ router.post("/:id/rate", async (req, res) => {
     res.json({
       message: "Rating submitted",
       avgRating: resource.avgRating,
-      ratingCount: resource.ratingCount
+      ratingCount: resource.ratingCount,
     });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Increment views
+router.patch("/:id/view", async (req, res) => {
+  try {
+    const resource = await Resource.findByIdAndUpdate(
+      req.params.id,
+      { $inc: { views: 1 } },
+      { new: true }
+    );
+    if (!resource)
+      return res.status(404).json({ message: "Resource not found" });
+    res.json({ views: resource.views });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Increment downloads
+router.patch("/:id/download", async (req, res) => {
+  try {
+    const resource = await Resource.findByIdAndUpdate(
+      req.params.id,
+      { $inc: { downloads: 1 } },
+      { new: true }
+    );
+    if (!resource)
+      return res.status(404).json({ message: "Resource not found" });
+    res.json({ downloads: resource.downloads });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Server error" });

@@ -18,7 +18,9 @@ const resourceSchema = new mongoose.Schema({
   tags: { type: [String], default: [] },
   ratings: { type: [ratingSchema], default: [] },
   avgRating: { type: Number, default: 0 },
-  ratingCount: { type: Number, default: 0 }
+  ratingCount: { type: Number, default: 0 },
+  views: { type: Number, default: 0 },
+  downloads: { type: Number, default: 0 },
 }, { timestamps: true });
 
 // Helper method to recalculate average rating

@@ -9,6 +9,7 @@ import resourceRoutes from "./routes/resource.js";
 import leaderboardRoutes from "./routes/leaderboard.js";
 import bookmarkRouter from "./routes/bookmark.js";
 import discussionRouter from "./routes/discussion.js";
+import userRouter from "./routes/users.js";
 
 const app = express();
 
@@ -51,6 +52,8 @@ app.use("/api/resources", resourceRoutes);
 app.use("/api/leaderboard", leaderboardRoutes);
 app.use("/api/discussions", discussionRouter);
 app.use("/api/bookmarks", bookmarkRouter);
+app.use("/api/users", userRouter);
+
 
 // ✅ Root route (for sanity check)
 app.get("/", (req, res) => {
