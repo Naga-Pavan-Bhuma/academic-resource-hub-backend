@@ -1,5 +1,7 @@
 import express from "express";
 import Discussion from "../models/Discussion.js";
+import { verifyToken } from "../middlewares/authMiddleware.js";
+import { logActivity } from "../utils/logActivity.js";
 
 const router = express.Router();
 
@@ -7,6 +9,7 @@ const router = express.Router();
 router.get("/", async (req, res) => {
   const { resourceId, type } = req.query;
   let filter = {};
+
   if (type === "general") filter.resourceId = null;
   else if (resourceId) filter.resourceId = resourceId;
 
@@ -17,55 +20,72 @@ router.get("/", async (req, res) => {
       .sort({ createdAt: -1 });
 
     res.json(discussions);
+
   } catch (err) {
     console.error("Failed to fetch discussions:", err);
     res.status(500).json({ error: "Failed to fetch discussions" });
   }
 });
 
+
 // POST create discussion thread
-router.post("/", async (req, res) => {
-  const { title, createdBy, resourceId } = req.body;
-  if (!title || !createdBy) return res.status(400).json({ error: "Missing required fields" });
+router.post("/", verifyToken, async (req, res) => {
+  const { title, resourceId } = req.body;
+
+  if (!title) 
+    return res.status(400).json({ error: "Title is required" });
 
   try {
     const newDiscussion = new Discussion({
       title,
-      createdBy,
+      createdBy: req.userId,        // 🔥 Secure
       resourceId: resourceId || null,
       comments: []
     });
 
     await newDiscussion.save();
-    // Populate createdBy after saving (no chaining here)
     await newDiscussion.populate("createdBy", "name");
-    
+
+    // 🔥 Log activity
+    await logActivity(req.userId, "discussion_create", `Started a discussion: ${title}`);
+
     res.status(201).json(newDiscussion);
+
   } catch (err) {
     console.error("Failed to create discussion:", err);
     res.status(500).json({ error: "Failed to create discussion" });
   }
 });
 
+
 // POST add comment to discussion
-router.post("/:id/comments", async (req, res) => {
-  const { text, postedBy } = req.body;
-  if (!text || !postedBy) return res.status(400).json({ error: "Missing required fields" });
+router.post("/:id/comments", verifyToken, async (req, res) => {
+  const { text } = req.body;
+
+  if (!text) 
+    return res.status(400).json({ error: "Comment text is required" });
 
   try {
     const discussion = await Discussion.findById(req.params.id);
-    if (!discussion) return res.status(404).json({ error: "Discussion not found" });
+    if (!discussion) 
+      return res.status(404).json({ error: "Discussion not found" });
 
-    discussion.comments.push({ text, postedBy });
+    discussion.comments.push({
+      text,
+      postedBy: req.userId          // 🔥 Secure
+    });
+
     await discussion.save();
-
-    // Populate multiple fields at once - no chaining, correct usage
     await discussion.populate([
       { path: "createdBy", select: "name" },
       { path: "comments.postedBy", select: "name" }
     ]);
 
+    // 🔥 Log activity
+    await logActivity(req.userId, "discussion_comment", `Commented on: ${discussion.title}`);
+
     res.json(discussion);
+
   } catch (err) {
     console.error("Failed to add comment:", err);
     res.status(500).json({ error: "Failed to add comment" });
