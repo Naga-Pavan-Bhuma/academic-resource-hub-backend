@@ -27,18 +27,19 @@ router.get("/", async (req, res) => {
   }
 });
 
-
-// POST create discussion thread
+// =========================================
+// 🚀 CREATE DISCUSSION THREAD (with WS emit)
+// =========================================
 router.post("/", verifyToken, async (req, res) => {
   const { title, resourceId } = req.body;
 
-  if (!title) 
+  if (!title)
     return res.status(400).json({ error: "Title is required" });
 
   try {
     const newDiscussion = new Discussion({
       title,
-      createdBy: req.userId,        // 🔥 Secure
+      createdBy: req.userId,
       resourceId: resourceId || null,
       comments: []
     });
@@ -49,6 +50,11 @@ router.post("/", verifyToken, async (req, res) => {
     // 🔥 Log activity
     await logActivity(req.userId, "discussion_create", `Started a discussion: ${title}`);
 
+    // 🔥 Broadcast new thread to ALL users (optional)
+    if (global._io) {
+      global._io.emit("new_thread", newDiscussion);
+    }
+
     res.status(201).json(newDiscussion);
 
   } catch (err) {
@@ -57,22 +63,24 @@ router.post("/", verifyToken, async (req, res) => {
   }
 });
 
-
-// POST add comment to discussion
+// =========================================
+// 🚀 ADD COMMENT (Secure + Real-time WS emit)
+// =========================================
 router.post("/:id/comments", verifyToken, async (req, res) => {
   const { text } = req.body;
 
-  if (!text) 
+  if (!text)
     return res.status(400).json({ error: "Comment text is required" });
 
   try {
     const discussion = await Discussion.findById(req.params.id);
-    if (!discussion) 
+    if (!discussion)
       return res.status(404).json({ error: "Discussion not found" });
 
+    // Add comment
     discussion.comments.push({
       text,
-      postedBy: req.userId          // 🔥 Secure
+      postedBy: req.userId
     });
 
     await discussion.save();
@@ -80,6 +88,18 @@ router.post("/:id/comments", verifyToken, async (req, res) => {
       { path: "createdBy", select: "name" },
       { path: "comments.postedBy", select: "name" }
     ]);
+
+    // The newly-added comment object
+    const newComment =
+      discussion.comments[discussion.comments.length - 1];
+
+    // 🔥 Real-time broadcast only to this thread room
+    if (global._io) {
+      global._io.to(req.params.id).emit("new_comment", {
+        threadId: req.params.id,
+        comment: newComment,
+      });
+    }
 
     // 🔥 Log activity
     await logActivity(req.userId, "discussion_comment", `Commented on: ${discussion.title}`);
@@ -89,6 +109,38 @@ router.post("/:id/comments", verifyToken, async (req, res) => {
   } catch (err) {
     console.error("Failed to add comment:", err);
     res.status(500).json({ error: "Failed to add comment" });
+  }
+});
+
+// =========================================
+// 🚀 DELETE THREAD (Creator-only + WS broadcast)
+// =========================================
+router.delete("/:id", verifyToken, async (req, res) => {
+  try {
+    const discussion = await Discussion.findById(req.params.id);
+
+    if (!discussion)
+      return res.status(404).json({ error: "Discussion not found" });
+
+    if (discussion.createdBy.toString() !== req.userId) {
+      return res.status(403).json({ error: "You are not allowed to delete this thread" });
+    }
+
+    await discussion.deleteOne();
+
+    // 🔥 Log activity
+    await logActivity(req.userId, "discussion_delete", `Deleted a discussion: ${discussion.title}`);
+
+    // 🔥 Notify everyone (optional)
+    if (global._io) {
+      global._io.emit("thread_deleted", { threadId: req.params.id });
+    }
+
+    res.json({ message: "Discussion deleted successfully" });
+
+  } catch (err) {
+    console.error("Failed to delete discussion:", err);
+    res.status(500).json({ error: "Failed to delete discussion" });
   }
 });
 
