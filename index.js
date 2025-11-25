@@ -3,8 +3,8 @@ dotenv.config();
 import express from "express";
 import mongoose from "mongoose";
 import cors from "cors";
-import http from "http";              // ✅ Needed for socket server
-import { Server } from "socket.io";   // ✅ Socket.IO
+import http from "http";
+import { Server } from "socket.io";
 
 import authRoutes from "./routes/auth.js";
 import resourceRoutes from "./routes/resource.js";
@@ -14,19 +14,21 @@ import discussionRouter from "./routes/discussion.js";
 import userRouter from "./routes/users.js";
 import activityRouter from "./routes/activity.js";
 import levelsRouter from "./routes/levels.js";
+
 const app = express();
 
 // Allowed CORS origins
 const allowedOrigins = [
   process.env.CLIENT_URL,
-  "http://localhost:5173",
+  "http://localhost:5173"
 ];
 
 // CORS setup
 app.use(
   cors({
     origin: (origin, callback) => {
-      if (!origin) return callback(null, true); // allow Postman / server-side
+      if (!origin) return callback(null, true); // server-to-server or Postman
+
       if (allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
@@ -40,7 +42,7 @@ app.use(
 
 app.use(express.json());
 
-// MongoDB connection
+// Connect DB
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => console.log("✅ MongoDB connected"))
@@ -49,30 +51,78 @@ mongoose
     process.exit(1);
   });
 
-
-// ===============================
-// 🚀 SOCKET.IO SERVER SETUP
-// ===============================
+// ============================================
+// 🚀 SOCKET.IO SETUP
+// ============================================
 const server = http.createServer(app);
 
 const io = new Server(server, {
   cors: {
-    origin: "*", // (Optional) Replace with CLIENT_URL for stricter control
+    origin: allowedOrigins,
     methods: ["GET", "POST"],
   },
 });
 
-// Make io available globally for logActivity.js
+// Make global so routes can emit
 global._io = io;
 
 io.on("connection", (socket) => {
-  console.log("🔥 User connected:", socket.id);
+  console.log("🔌 New socket connected:", socket.id)  ;
+  // --------------------------------------------
+  // 🎯 THREAD CHAT ROOMS
+  // --------------------------------------------
+  socket.on("join_thread", (threadId) => {
+    socket.join(threadId);
+
+    const count =
+      io.sockets.adapter.rooms.get(threadId)?.size || 1;
+
+    io.to(threadId).emit("thread_users", {
+      threadId,
+      count,
+    });
+  });
+
+  socket.on("leave_thread", (threadId) => {
+    socket.leave(threadId);
+
+    const count =
+      io.sockets.adapter.rooms.get(threadId)?.size || 0;
+
+    io.to(threadId).emit("thread_users", {
+      threadId,
+      count,
+    });
+  });
+
+  // Typing Indicator
+  socket.on("typing", ({ threadId, user }) => {
+    socket.to(threadId).emit("typing", { user });
+  });
+
+  socket.on("stop_typing", ({ threadId, user }) => {
+    socket.to(threadId).emit("stop_typing", { user });
+  });
+
+  // --------------------------------------------
+  // 🧩 ACTIVITY ROOMS (user-specific)
+  // --------------------------------------------
+  socket.on("join_activity", (userId) => {
+    socket.join(`user_${userId}`);
+    console.log(`📌 Joined activity room: user_${userId}`);
+  });
+
+  socket.on("leave_activity", (userId) => {
+    socket.leave(`user_${userId}`);
+    console.log(`🚪 Left activity room: user_${userId}`);
+  });
 
   socket.on("disconnect", () => {
-    console.log("❌ User disconnected:", socket.id);
+    console.log("❌ Socket disconnected:", socket.id);
   });
 });
-// ===============================
+
+// ============================================
 
 
 // API Routes
@@ -85,15 +135,14 @@ app.use("/api/users", userRouter);
 app.use("/api/activity", activityRouter);
 app.use("/api/levels", levelsRouter);
 
-// Root Check
+// Root
 app.get("/", (req, res) => {
-  res.json({ status: "OK", message: "API is running 🚀" });
+  res.json({ status: "OK", message: "API running 🚀" });
 });
 
-
-// Start Server (Socket-enabled)
+// Start server
 const PORT = process.env.PORT || 5000;
 
 server.listen(PORT, "0.0.0.0", () => {
-  console.log(`🚀 Server running with SOCKET.IO at http://0.0.0.0:${PORT}`);
+  console.log(`🚀 Server with SOCKET.IO at http://localhost:${PORT}`);
 });
