@@ -15,6 +15,8 @@ import userRouter from "./routes/users.js";
 import activityRouter from "./routes/activity.js";
 import levelsRouter from "./routes/levels.js";
 
+import pdfRoutes from "./routes/pdfRoutes.js";
+
 const app = express();
 
 // Allowed CORS origins
@@ -134,6 +136,8 @@ app.use("/api/bookmarks", bookmarkRouter);
 app.use("/api/users", userRouter);
 app.use("/api/activity", activityRouter);
 app.use("/api/levels", levelsRouter);
+app.use("/api/pdf", pdfRoutes);
+
 
 // Root
 app.get("/", (req, res) => {
