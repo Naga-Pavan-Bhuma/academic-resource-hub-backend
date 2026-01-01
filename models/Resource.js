@@ -31,6 +31,20 @@ resourceSchema.methods.updateRatingStats = function() {
   return this.avgRating;
 };
 
+// INDEXES
+resourceSchema.index({
+  title: "text",
+  subject: "text",
+  tags: "text",
+  uploadedBy: "text",
+});
+
+resourceSchema.index({ year: 1 });
+resourceSchema.index({ sem: 1 });
+resourceSchema.index({ branch: 1 });
+resourceSchema.index({ collegeId: 1 });
+
+
 const Resource = mongoose.model("Resource", resourceSchema);
 
 export default Resource;

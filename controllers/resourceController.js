@@ -124,3 +124,32 @@ export const incrementDownloads = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
+// 🔍 SEARCH RESOURCES (Indexed)
+export const searchResources = async (req, res) => {
+  try {
+    const { q, year, sem, branch } = req.query;
+
+    const filter = {};
+
+    // Text search
+    if (q) {
+      filter.$text = { $search: q };
+    }
+
+    // Filters
+    if (year) filter.year = year;
+    if (sem) filter.sem = sem;
+    if (branch) filter.branch = branch;
+
+    const resources = await Resource.find(filter, q ? {
+      score: { $meta: "textScore" }
+    } : {})
+      .sort(q ? { score: { $meta: "textScore" } } : { createdAt: -1 });
+
+    res.json(resources);
+  } catch (err) {
+    console.error("Search error:", err);
+    res.status(500).json({ message: "Search failed" });
+  }
+};

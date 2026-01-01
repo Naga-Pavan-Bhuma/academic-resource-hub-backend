@@ -1,13 +1,17 @@
 // routes/resource.js
 import express from "express";
 import { verifyToken } from "../middlewares/authMiddleware.js";
+
+
 import {
   createResource,
   getResources,
   getResourceById,
   incrementViews,
-  incrementDownloads
+  incrementDownloads,
+  searchResources   // 👈 add this
 } from "../controllers/resourceController.js";
+
 
 const router = express.Router();
 
@@ -15,6 +19,9 @@ const router = express.Router();
 router.post("/", verifyToken, createResource);
 
 router.get("/", getResources);
+// 🔍 SEARCH
+router.get("/search", searchResources);
+
 router.get("/:id", getResourceById);
 
 router.patch("/:id/view", incrementViews);
