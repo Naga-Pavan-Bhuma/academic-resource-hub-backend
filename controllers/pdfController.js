@@ -3,6 +3,8 @@ import { createRequire } from "module";
 import PdfSummary from "../models/PdfSummary.js";
 
 
+import Quiz from "../models/Quiz.js";
+
 /* =========================
    pdf-parse (CommonJS)
 ========================= */
@@ -150,5 +152,110 @@ ${question}
     return res.status(500).json({
       message: "Failed to answer question",
     });
+  }
+};
+
+
+export const submitQuiz = async (req, res) => {
+  try {
+    const { quizId, answers } = req.body;
+
+    const quiz = await Quiz.findById(quizId);
+    if (!quiz) return res.status(404).json({ message: "Quiz not found" });
+
+    let score = 0;
+
+    const results = quiz.questions.map((q, index) => {
+      const isCorrect = answers[index] === q.correctAnswer;
+      if (isCorrect) score++;
+
+      return {
+        question: q.question,
+        selected: answers[index],
+        correct: q.correctAnswer,
+        isCorrect,
+      };
+    });
+
+    return res.json({
+      score,
+      total: quiz.questions.length,
+      results, // ✅ IMPORTANT
+    });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Submit failed" });
+  }
+};
+
+export const generateQuiz = async (req, res) => {
+  try {
+    const { pdfUrl } = req.body;
+
+    const pdfData = await PdfSummary.findOne({ pdfUrl });
+
+    if (!pdfData) {
+      return res.status(404).json({ message: "PDF not summarized yet" });
+    }
+
+    const prompt = `
+You are an academic assistant.
+
+Generate a quiz from the given content.
+
+Rules:
+- 5 MCQ questions
+- 2 short answer questions
+- Each MCQ should have 4 options
+- Provide correct answer clearly
+
+Return in JSON format like:
+[
+  {
+    "question": "...",
+    "options": ["A", "B", "C", "D"],
+    "correctAnswer": "A",
+    "type": "mcq"
+  },
+  {
+    "question": "...",
+    "correctAnswer": "...",
+    "type": "short"
+  }
+]
+
+Content:
+${pdfData.text.substring(0, 8000)}
+`;
+
+    const response = await axios.post(
+      "https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent",
+      {
+        contents: [{ parts: [{ text: prompt }] }],
+      },
+      {
+        params: { key: process.env.GEMINI_API_KEY },
+      }
+    );
+
+    let quizText = response.data.candidates[0].content.parts[0].text;
+
+    // Clean JSON (important)
+    quizText = quizText.replace(/```json|```/g, "");
+
+    const questions = JSON.parse(quizText);
+
+    const quiz = await Quiz.create({
+      userId: req.userId,
+      pdfUrl,
+      questions,
+    });
+
+    res.json(quiz);
+
+  } catch (err) {
+    console.error("Quiz generation error:", err);
+    res.status(500).json({ message: "Failed to generate quiz" });
   }
 };

@@ -13,4 +13,6 @@ router.get("/me", verifyToken, getMe);
 router.post("/send-otp", sendOtp);
 router.post("/verify-otp", verifyOtp);
 router.post("/signup", signup);
+
+
 export default router;

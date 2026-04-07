@@ -27,17 +27,18 @@ export const createResource = async (req, res) => {
     }
 
     const resource = new Resource({
-      title,
-      subject,
-      year,
-      sem,
-      unitNumber,
-      branch,
-      file,
-      uploadedBy,
-      collegeId,
-      tags: tags || [],
-    });
+  title,
+  subject,
+  year,
+  sem,
+  unitNumber,
+  branch,
+  file,
+  uploadedBy,
+  collegeId,
+  tags: tags || [],
+  status: "pending" // 🔥 MUST ADD
+});
 
     const saved = await resource.save();
 
@@ -65,7 +66,7 @@ export const createResource = async (req, res) => {
     }
 
     res.status(201).json({
-      message: "Resource uploaded successfully (+10 points)",
+      message: "Resource uploaded and waiting for approval",
       resource: saved,
     });
 
@@ -79,7 +80,8 @@ export const createResource = async (req, res) => {
 // GET ALL RESOURCES
 export const getResources = async (req, res) => {
   try {
-    const resources = await Resource.find().sort({ createdAt: -1 });
+    const resources = await Resource.find({ status: "approved" })
+  .sort({ createdAt: -1 });
     res.json(resources);
   } catch (err) {
     res.status(500).json({ message: "Server error" });
@@ -141,6 +143,8 @@ export const searchResources = async (req, res) => {
     if (year) filter.year = year;
     if (sem) filter.sem = sem;
     if (branch) filter.branch = branch;
+
+    filter.status = "approved";
 
     const resources = await Resource.find(filter, q ? {
       score: { $meta: "textScore" }

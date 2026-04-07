@@ -25,7 +25,7 @@ export const sendOtp = async (req, res) => {
     const msg = {
       to: email,
       from: {
-        email: "bhumanagapavan@gmail.com",
+        email: "tejaswiyadavalli1285@gmail.com",
         name: "Academic Resource Hub",
       },
       subject: "🎓 Welcome to Academic Resource Hub! Your OTP awaits 🎉",

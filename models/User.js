@@ -9,6 +9,11 @@ const userSchema = new mongoose.Schema({
   branch: { type: String },
   password: { type: String, required: true },
   points: { type: Number, default: 0 },
+  role: {
+  type: String,
+  enum: ["student", "faculty", "admin"],
+  default: "student",
+},
   bookmarks: [{ type: mongoose.Schema.Types.ObjectId, ref: "Resource" }],
 }, { timestamps: true });
 

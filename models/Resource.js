@@ -20,6 +20,17 @@ const resourceSchema = new mongoose.Schema({
   avgRating: { type: Number, default: 0 },
   ratingCount: { type: Number, default: 0 },
   views: { type: Number, default: 0 },
+  status: {
+  type: String,
+  enum: ["pending", "approved", "rejected"],
+  default: "pending",
+},
+
+approvedBy: {
+  type: mongoose.Schema.Types.ObjectId,
+  ref: "User",
+  default: null,
+},
   downloads: { type: Number, default: 0 },
 }, { timestamps: true });
 
