@@ -17,6 +17,8 @@ import levelsRouter from "./routes/levels.js";
 
 import pdfRoutes from "./routes/pdfRoutes.js";
 
+import adminRoutes from "./routes/admin.js";
+
 const app = express();
 
 // Allowed CORS origins
@@ -142,6 +144,8 @@ app.use("/api/users", userRouter);
 app.use("/api/activity", activityRouter);
 app.use("/api/levels", levelsRouter);
 app.use("/api/pdf", pdfRoutes);
+
+app.use("/api/admin", adminRoutes);
 
 
 // Root
